@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
+import "./EIP712.sol";
 
-contract ERC20{
+contract ERC20 is EIP712{
     mapping(address => uint256) private balances;
     mapping(address => mapping(address =>uint256)) private allowances;
 
@@ -11,14 +12,16 @@ contract ERC20{
     string private _symbol;
     bool private paused;
     address private owner;
-
-    constructor (string memory name_, string memory symbol_) public{
+    mapping(address => uint256) private _nonces;
+   
+    constructor (string memory _name_, string memory _symbol_) EIP712(_name, "1"){
         _decimals = 18;
-        _name = name_;
-        _symbol = symbol_;
+        _name = _name_;
+        _symbol = _symbol_;
         _mint(msg.sender, 100 ether);
         paused = false;
         owner = msg.sender;
+        
     }
 
     modifier whenNotPaused(){
@@ -75,6 +78,11 @@ contract ERC20{
         emit Approval(msg.sender, _spender, _value);
     }
 
+    function _approve(address _owner, address _spender, uint256 _value) public{
+        require(_spender != address(0), "approve to the zero address");
+        allowances[_owner][_spender] = _value;
+        emit Approval(_owner, _spender, _value);
+    }
     function allowance(address _owner, address _spender) public view returns(uint256 remaining){
         return allowances[_owner][_spender];
     }
@@ -101,7 +109,7 @@ contract ERC20{
         emit Transfer(_from, _to, _value);
     }
     
-    function _mint(address _owner, uint256 _value) internal{//token을 얼마나 발행할 지 value를 통해서 나타냄
+    function _mint(address _owner, uint256 _value) internal{
         require(_owner != address(0), "mint to the zero address");
         _totalSupply += _value;
         unchecked{
@@ -110,7 +118,7 @@ contract ERC20{
         emit Transfer(address(0), _owner, _value);
     }
     
-    function _burn(address _owner, uint256 _value) internal{ //토큰을 아무도 갖지 않고 totalSupply에서 지워버리겠다
+    function _burn(address _owner, uint256 _value) internal{ 
         require(_owner != address(0), "burn from the zero address");
         require(balances[_owner] >= _value, "burn amount exceeds balance");
         unchecked{
@@ -128,5 +136,27 @@ contract ERC20{
     function unpause() public onlyOwner{
         paused = false;
         emit Unpaused(msg.sender);
+    }
+
+      function permit(
+        address _owner,
+        address _spender,
+        uint256 _value,
+        uint256 _deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public  {
+        require(block.timestamp <= _deadline, "ERC20Permit: expired deadline");
+        
+        bytes32 structHash = _hashTypedData(_owner, _spender, _value, _nonces[_owner], _deadline);
+        require(ecrecover(_toTypedDataHash(structHash), v, r, s) == _owner, "INVALID_SIGNER");
+        _nonces[_owner]++;
+
+        _approve(_owner, _spender, _value);
+    }
+    
+    function nonces(address _owner) public returns (uint256) {
+        return _nonces[_owner];
     }
 }
