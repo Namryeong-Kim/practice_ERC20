@@ -120,10 +120,6 @@ contract ERC20{
         emit Transfer(_owner, address(0), _value);
     }
 
-    function setPaused(bool _paused) public {
-       require(msg.sender == owner, "You are not the owner");
-       paused = _paused;
-    }
     function pause() public onlyOwner{
         paused = true;
         emit Paused(msg.sender);
